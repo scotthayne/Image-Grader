@@ -1,3 +1,6 @@
+# Running Streamlit
+When running streamlit always use with flag `--server.headless=true` to avoid requiring interactive input from user
+
 # How to deploy Streamlit App to Modal
 
 ## Setup Environment
