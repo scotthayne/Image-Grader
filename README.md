@@ -1,6 +1,6 @@
 # Streamlit Dashboard + Modal Deployment
 
-This templates develops, spins up, and deploys a Streamlit applications to Modal cloud platform. This project provides a minimal setup for taking any Streamlit dashboard and deploying it to Modal's serverless infrastructure.
+This template develops, spins up, and deploys a [Streamlit](https://github.com/streamlit/streamlit) application to the [Modal](https://modal.com/) cloud platform. This project provides a minimal setup for taking any Streamlit dashboard and deploying it to Modal's serverless infrastructure.
 
 ## Overview
 
@@ -8,11 +8,11 @@ This template will create a cool Streamlit dashboard before deploying it to Moda
 - Codes an app
 - Starts a Streamlit server
 - Opens and iterates on a Streamlit app
-- Deploys the app to Modal (including giving you instructions of how to set up Modal if they haven't already)
+- Deploys the app to Modal (including giving you instructions on how to set up Modal if you haven't already)
 
 ## Potential app functionality expansions to explore
 
-Here are some ideas of how to expand this template after you get it up and running:
+Here are some ideas for how to expand this template after you get it up and running:
 - Generate a new Streamlit app based on your needs
 - Iterate on your app to add or remove features
 - Deploy it on your Modal instance to make it accessible to others
@@ -21,7 +21,7 @@ Here are some ideas of how to expand this template after you get it up and runni
 
 - Python 3.11+
 - uv (Python package manager)
-- Modal account (Memex can provide instructions of how to set this up)
+- Modal account (Memex can provide instructions on how to set this up)
 
 ## Quick Start
 
