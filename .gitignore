@@ -1,3 +1,13 @@
+
+# Build artifacts
+/build/
+/dist/
+*.spec
+
+# Test scripts
+test_*.py
+minimal_mediapipe_test.py
+
 # Python
 __pycache__/
 *.py[cod]
