@@ -77,12 +77,12 @@ def analyze_facial_features(image_path):
     except Exception:
         return None
 
-def is_blank(image_path):
+def is_blank(image_path, size_threshold_mb):
     """Determines if an image is blank based on file size and absence of people."""
     try:
-        # Check 1: File size less than 4.6 MB
+        # Check 1: File size less than the threshold
         file_size_mb = os.path.getsize(image_path) / (1024 * 1024)  # Convert bytes to MB
-        if file_size_mb >= 4.6:
+        if file_size_mb >= size_threshold_mb:
             return False
         
         # Check 2: No person detected
@@ -171,6 +171,14 @@ class App(ctk.CTk):
         self.headsize_value_label = ctk.CTkLabel(self.slider_frame, text="20%") # --- UPDATED DEFAULT ---
         self.headsize_value_label.grid(row=0, column=2, padx=10, pady=5, sticky="e")
 
+        self.blank_size_label = ctk.CTkLabel(self.slider_frame, text="Blank Size Threshold (MB):")
+        self.blank_size_label.grid(row=1, column=0, padx=10, pady=5, sticky="w")
+        self.blank_size_slider = ctk.CTkSlider(self.slider_frame, from_=3.0, to=7.0, number_of_steps=40, command=self.update_blank_size_label)
+        self.blank_size_slider.set(5.0)
+        self.blank_size_slider.grid(row=1, column=1, padx=10, pady=5, sticky="ew")
+        self.blank_size_value_label = ctk.CTkLabel(self.slider_frame, text="5.0 MB")
+        self.blank_size_value_label.grid(row=1, column=2, padx=10, pady=5, sticky="e")
+
 
 
 
@@ -201,11 +209,16 @@ class App(ctk.CTk):
         self.source_directory = ""
         self.target_directory = ""
         self.close_up_threshold = 20.0 # --- UPDATED DEFAULT ---
+        self.blank_size_threshold = 5.0
         self.keeper_dir = ""
 
     def update_headsize_label(self, value):
         self.close_up_threshold = value
         self.headsize_value_label.configure(text=f"{int(value)}%")
+
+    def update_blank_size_label(self, value):
+        self.blank_size_threshold = value
+        self.blank_size_value_label.configure(text=f"{value:.1f} MB")
         
     def browse_source_directory(self):
         self.source_directory = filedialog.askdirectory()
@@ -238,6 +251,7 @@ class App(ctk.CTk):
         self.process_button.configure(state=state)
         self.source_dir_browse_button.configure(state=state)
         self.headsize_slider.configure(state=state)
+        self.blank_size_slider.configure(state=state)
         self.target_dir_browse_button.configure(state=state)
         self.transfer_button.configure(state="normal" if is_normal and self.keeper_dir else "disabled")
 
@@ -283,7 +297,7 @@ class App(ctk.CTk):
         for i, image_path in enumerate(all_files):
             self.status_label.configure(text=f"Processing {i + 1}/{total_files}: {os.path.basename(image_path)}")
             
-            if is_blank(image_path):
+            if is_blank(image_path, self.blank_size_threshold):
                 if current_set_data:
                     self.process_completed_set(current_set_data, self.keeper_dir)
                 current_set_data = []
@@ -320,7 +334,7 @@ class App(ctk.CTk):
                 elif not facial_features and not detect_person(image_path) and quality_metrics:
                     # Fallback 2: no face, no person detected, but substantial file size
                     file_size_mb = os.path.getsize(image_path) / (1024 * 1024)
-                    if file_size_mb >= 4.6:
+                    if file_size_mb >= self.blank_size_threshold:
                         sharpness_score = min(quality_metrics['sharpness'] / 133.0, 10)
                         contrast_score = min(quality_metrics['contrast'] / 10.0, 10)
                         brightness_score = max(0, 10 - abs(quality_metrics['brightness'] - 128) / 12.8)

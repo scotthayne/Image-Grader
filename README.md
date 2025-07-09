@@ -14,7 +14,8 @@ The Image Grader processes folders of images, automatically:
 ## Key Features
 
 ### Intelligent Set Detection
-- **File Size + Content Analysis**: Identifies blank separator images using file size (<4.6 MB) and absence of people
+- **Adjustable Blank Threshold**: GUI slider to set the file size threshold for blanks (3.0-7.0 MB, default 5.0 MB)
+- **File Size + Content Analysis**: Identifies blank separator images using the adjustable file size and absence of people
 - **Automatic Set Separation**: Organizes images into logical sets for comparison
 
 ### Advanced Image Grading (0-105 Points)
@@ -54,7 +55,7 @@ The Image Grader processes folders of images, automatically:
 - **Enhanced Blank Detection**: Replaced brightness-based detection with file size + content analysis
 - **Teeth Detection**: Added 5-point bonus for visible teeth using Mouth Aspect Ratio
 - **Person Detection Fallback**: HOG-based detection for distant shots without visible faces  
-- **Content Size Fallback**: Includes substantial images (≥4.6 MB) even without people detection
+- **Content Size Fallback**: Includes substantial images (with file size above the blank threshold) even without people detection
 - **Network Path Fixes**: Resolved ExifTool compatibility issues with UNC paths using `os.path.abspath()`
 - **Improved Long Shot Selection**: Multi-tier classification ensures both close-ups and long shots are available
 
