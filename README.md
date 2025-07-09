@@ -1,49 +1,143 @@
-# Streamlit Dashboard + Modal Deployment
+# Image Grader and Selector
 
-This template develops, spins up, and deploys a [Streamlit](https://github.com/streamlit/streamlit) application to the [Modal](https://modal.com/) cloud platform. This project provides a minimal setup for taking any Streamlit dashboard and deploying it to Modal's serverless infrastructure.
+An automated tool for grading and selecting the best photos from image sets. The application analyzes facial features, image quality, and content to automatically identify and rate keeper images from photo sessions.
 
 ## Overview
 
-This template will create a cool Streamlit dashboard before deploying it to Modal, allowing you to see how Memex:
-- Codes an app
-- Starts a Streamlit server
-- Opens and iterates on a Streamlit app
-- Deploys the app to Modal (including giving you instructions on how to set up Modal if you haven't already)
+The Image Grader processes folders of images, automatically:
+- Detects photo sets using blank separator images
+- Grades each image based on multiple criteria
+- Selects the best close-up and long shot from each set
+- Applies metadata ratings to keeper images
+- Transfers ratings to corresponding RAW files
 
-## Potential app functionality expansions to explore
+## Key Features
 
-Here are some ideas for how to expand this template after you get it up and running:
-- Generate a new Streamlit app based on your needs
-- Iterate on your app to add or remove features
-- Deploy it on your Modal instance to make it accessible to others
+### Intelligent Set Detection
+- **File Size + Content Analysis**: Identifies blank separator images using file size (<4.6 MB) and absence of people
+- **Automatic Set Separation**: Organizes images into logical sets for comparison
+
+### Advanced Image Grading (0-105 Points)
+- **Facial Analysis (0-70 points)**:
+  - Smile intensity: 0-50 points (using Mouth Aspect Ratio)
+  - Eyes open: 20 points (binary, using Eye Aspect Ratio threshold of 0.14)
+  - **Teeth bonus: 5 points** (NEW - awarded when teeth are visible)
+- **Image Quality (0-30 points)**: Sharpness, contrast, and brightness analysis
+- **Head positioning**: Additional scoring for proper head orientation
+
+### Multi-Tier Image Classification
+1. **Face Detected**: Full analysis with facial features and quality metrics
+2. **Person Detected**: Fallback for distant shots where faces aren't detectable
+3. **Content Detected**: File size-based fallback for substantial images (≥4.6 MB) without detectable people
+
+### Smart Keeper Selection
+- **Primary Logic**: Selects highest-scoring close-up and long shot from each set
+- **Close-up Threshold**: Configurable face size percentage (default: 20% of image width)
+- **Fallback Logic**: If primary logic fails, selects top 2 highest-scoring images regardless of type
+
+### Metadata Management
+- **Grading**: Writes calculated scores to ImageDescription EXIF tag
+- **Rating**: Applies 5-star ratings to keeper images
+- **RAW Transfer**: Automatically finds and rates corresponding RAW files (e.g., .CR2) in target directory
+- **Network Path Support**: Fixed compatibility with network drives and external storage
+
+## Technical Implementation
+
+### Core Technologies
+- **GUI**: CustomTkinter for modern, user-friendly interface
+- **Face Analysis**: MediaPipe for precise facial landmark detection
+- **Image Processing**: OpenCV for quality analysis and person detection
+- **Person Detection**: HOG (Histogram of Oriented Gradients) descriptor
+- **Metadata**: ExifTool for robust EXIF data writing across all file formats
+
+### Recent Improvements (Latest Session)
+- **Enhanced Blank Detection**: Replaced brightness-based detection with file size + content analysis
+- **Teeth Detection**: Added 5-point bonus for visible teeth using Mouth Aspect Ratio
+- **Person Detection Fallback**: HOG-based detection for distant shots without visible faces  
+- **Content Size Fallback**: Includes substantial images (≥4.6 MB) even without people detection
+- **Network Path Fixes**: Resolved ExifTool compatibility issues with UNC paths using `os.path.abspath()`
+- **Improved Long Shot Selection**: Multi-tier classification ensures both close-ups and long shots are available
+
+## Usage
+
+### Running the Application
+```bash
+# For development/local use
+run_ImageGrader.bat
+
+# For distribution
+ImageGrader_Setup.exe
+```
+
+### Workflow
+1. **Select Source Directory**: Choose folder containing image sets with blank separators
+2. **Adjust Settings**: Configure close-up threshold (default: 20%)
+3. **Process Images**: Click "Grade and Select Images" to analyze and select keepers
+4. **Transfer Ratings**: (Optional) Select target directory to apply ratings to RAW files
+
+### File Organization
+- **Input**: Image sets separated by blank images in source directory
+- **Output**: `keepers_rated/` folder containing selected images with 5-star ratings
+- **Metadata**: All processed images receive numerical grades in ImageDescription field
 
 ## Requirements
 
-- Python 3.11+
-- uv (Python package manager)
-- Modal account (Memex can provide instructions on how to set this up)
+- **Python 3.11+**
+- **Virtual Environment**: Uses `.venv` for dependency management
+- **ExifTool**: Required for metadata writing (included in installer)
+- **Windows OS**: Current version optimized for Windows
 
-## Quick Start
+### Key Dependencies
+- `customtkinter` - Modern GUI framework
+- `mediapipe` - Advanced facial analysis
+- `opencv-python` - Image processing and person detection
+- `Pillow` - Image quality analysis
+- `numpy` - Numerical computations
 
-Just ask Memex to run this app locally and it will take care of the rest! If you run into any errors, just point Memex to fix them.
+## Installation
 
-If you’d like to set up the environment and dependencies manually, follow these steps:
+### For End Users
+1. Download and run `ImageGrader_Setup.exe`
+2. Application installs with all dependencies included
 
-1. Place your Streamlit app in `app.py`
-2. Follow `instructions.md` for deployment steps
-3. Access your app at `https://[username]--[app-name]-run.modal.run`
+### For Development
+1. Clone repository
+2. Create virtual environment: `uv venv`
+3. Install dependencies: `uv pip install -r requirements.txt`
+4. Run: `run_ImageGrader.bat`
 
-## Development
+## Scoring System Details
 
-See Rules for AI (rendered from .memex/rules.md) for detailed development guidelines Memex will follow, including:
-- Complete setup instructions
-- Model-specific parameters
-- Error handling
-- Potential improvements
-- Development workflow
+### Face-Detected Images (0-105 points)
+- Smile Analysis: 0-50 points
+- Eyes Open: 0-20 points  
+- Teeth Bonus: 0-5 points
+- Image Quality: 0-30 points
 
-You can ask Memex to update rules.md to reflect your project needs as you expand it, or set it as part of your Custom Instructions so that it does it automatically after important steps.
+### Person-Detected Images (0-50 points)
+- Base Person Score: 20 points
+- Image Quality: 0-30 points
 
-## License
+### Content-Only Images (0-45 points)
+- Base Content Score: 15 points
+- Image Quality: 0-30 points
 
-[Streamlit](https://github.com/streamlit/streamlit) is Open Source, and [Modal](https://modal.com/) has a free trial available.
+## Future Enhancements
+
+- Additional facial expression analysis
+- Batch processing optimization
+- Cloud storage integration
+- Custom scoring weight configuration
+- Multiple person detection and selection
+
+## Development History
+
+Built with iterative development using AI assistance, focusing on:
+- Robust error handling and edge case management
+- User experience optimization
+- Cross-platform compatibility considerations
+- Comprehensive testing and validation
+
+---
+
+*Generated with Memex AI Assistant*

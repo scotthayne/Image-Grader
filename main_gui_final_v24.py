@@ -56,7 +56,8 @@ def analyze_facial_features(image_path):
             vertical_dist = np.linalg.norm(np.array([top_lip.x, top_lip.y]) - np.array([bottom_lip.x, bottom_lip.y]))
             horizontal_dist = np.linalg.norm(np.array([left_corner.x, left_corner.y]) - np.array([right_corner.x, right_corner.y]))
             mar = vertical_dist / horizontal_dist if horizontal_dist > 0 else 0
-            smile_score = min(max(mar * 500 - 15, 0), 50) 
+            smile_score = min(max(mar * 500 - 15, 0), 50)
+            teeth_bonus = 5 if mar > 0.1 else 0
 
             nose_tip = np.array([landmarks[NOSE_TIP].x, landmarks[NOSE_TIP].y])
             left_eye_center = (np.array([landmarks[LEFT_EYE_CORNERS[0]].x, landmarks[LEFT_EYE_CORNERS[0]].y]) + np.array([landmarks[LEFT_EYE_CORNERS[1]].x, landmarks[LEFT_EYE_CORNERS[1]].y])) / 2.0
@@ -71,19 +72,44 @@ def analyze_facial_features(image_path):
             face_w = max(face_landmarks_x) - min(face_landmarks_x)
             face_size_percentage = (face_w / img_width) * 100
             
-            return {'eyes_open': eyes_open, 'smile_score': smile_score, 'face_size': face_size_percentage, 'head_turn_score': head_turn_score}
+            return {'eyes_open': eyes_open, 'smile_score': smile_score, 'face_size': face_size_percentage, 'head_turn_score': head_turn_score, 'teeth_bonus': teeth_bonus}
             
     except Exception:
         return None
 
-def is_blank(image_path, brightness_threshold):
-    """Determines if an image is blank based on brightness."""
+def is_blank(image_path):
+    """Determines if an image is blank based on file size and absence of people."""
     try:
-        img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-        if img is None: return True
-        return np.mean(img) < brightness_threshold
+        # Check 1: File size less than 4.6 MB
+        file_size_mb = os.path.getsize(image_path) / (1024 * 1024)  # Convert bytes to MB
+        if file_size_mb >= 4.6:
+            return False
+        
+        # Check 2: No person detected
+        facial_features = analyze_facial_features(image_path)
+        return facial_features is None  # If no face found, consider it blank
+        
     except Exception:
         return True
+
+def detect_person(image_path):
+    """Detects if a person is present in the image using HOG detector."""
+    try:
+        img = cv2.imread(image_path)
+        if img is None:
+            return False
+        
+        # Initialize HOG person detector
+        hog = cv2.HOGDescriptor()
+        hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+        
+        # Detect people in the image
+        boxes, weights = hog.detectMultiScale(img, winStride=(8, 8), padding=(32, 32), scale=1.05)
+        
+        return len(boxes) > 0  # Return True if any person detected
+        
+    except Exception:
+        return False
 
 def analyze_image_quality(image_path):
     """Analyzes image quality."""
@@ -145,13 +171,8 @@ class App(ctk.CTk):
         self.headsize_value_label = ctk.CTkLabel(self.slider_frame, text="20%") # --- UPDATED DEFAULT ---
         self.headsize_value_label.grid(row=0, column=2, padx=10, pady=5, sticky="e")
 
-        self.brightness_label = ctk.CTkLabel(self.slider_frame, text="Blank Threshold (Brightness):")
-        self.brightness_label.grid(row=1, column=0, padx=10, pady=5, sticky="w")
-        self.brightness_slider = ctk.CTkSlider(self.slider_frame, from_=10, to=100, number_of_steps=90, command=self.update_brightness_label)
-        self.brightness_slider.set(48)
-        self.brightness_slider.grid(row=1, column=1, padx=10, pady=5, sticky="ew")
-        self.brightness_value_label = ctk.CTkLabel(self.slider_frame, text="48")
-        self.brightness_value_label.grid(row=1, column=2, padx=10, pady=5, sticky="e")
+
+
 
         self.process_button = ctk.CTkButton(self, text="Grade and Select Images", command=self.start_processing)
         self.process_button.grid(row=2, column=0, padx=20, pady=10, sticky="ew")
@@ -180,17 +201,12 @@ class App(ctk.CTk):
         self.source_directory = ""
         self.target_directory = ""
         self.close_up_threshold = 20.0 # --- UPDATED DEFAULT ---
-        self.brightness_threshold = 48.0
         self.keeper_dir = ""
 
     def update_headsize_label(self, value):
         self.close_up_threshold = value
         self.headsize_value_label.configure(text=f"{int(value)}%")
         
-    def update_brightness_label(self, value):
-        self.brightness_threshold = value
-        self.brightness_value_label.configure(text=f"{int(value)}")
-
     def browse_source_directory(self):
         self.source_directory = filedialog.askdirectory()
         self.source_dir_path_label.configure(text=self.source_directory if self.source_directory else "Not Selected")
@@ -222,7 +238,6 @@ class App(ctk.CTk):
         self.process_button.configure(state=state)
         self.source_dir_browse_button.configure(state=state)
         self.headsize_slider.configure(state=state)
-        self.brightness_slider.configure(state=state)
         self.target_dir_browse_button.configure(state=state)
         self.transfer_button.configure(state="normal" if is_normal and self.keeper_dir else "disabled")
 
@@ -268,7 +283,7 @@ class App(ctk.CTk):
         for i, image_path in enumerate(all_files):
             self.status_label.configure(text=f"Processing {i + 1}/{total_files}: {os.path.basename(image_path)}")
             
-            if is_blank(image_path, self.brightness_threshold):
+            if is_blank(image_path):
                 if current_set_data:
                     self.process_completed_set(current_set_data, self.keeper_dir)
                 current_set_data = []
@@ -277,16 +292,45 @@ class App(ctk.CTk):
                 quality_metrics = analyze_image_quality(image_path)
 
                 if facial_features and quality_metrics:
+                    # Standard face-detected processing
                     eyes_score = facial_features['eyes_open'] * 20
                     sharpness_score = min(quality_metrics['sharpness'] / 133.0, 10)
                     contrast_score = min(quality_metrics['contrast'] / 10.0, 10)
                     brightness_score = max(0, 10 - abs(quality_metrics['brightness'] - 128) / 12.8)
                     quality_score = sharpness_score + contrast_score + brightness_score
-                    total_score = facial_features['smile_score'] + facial_features['head_turn_score'] + eyes_score + quality_score
+                    total_score = facial_features['smile_score'] + facial_features['head_turn_score'] + eyes_score + quality_score + facial_features.get('teeth_bonus', 0)
                     
                     write_grade_to_exif(image_path, total_score)
                     is_closeup = facial_features['face_size'] > self.close_up_threshold
                     current_set_data.append((image_path, total_score, is_closeup, facial_features['eyes_open']))
+                
+                elif not facial_features and quality_metrics and detect_person(image_path):
+                    # Fallback 1: person detected but no face features
+                    sharpness_score = min(quality_metrics['sharpness'] / 133.0, 10)
+                    contrast_score = min(quality_metrics['contrast'] / 10.0, 10)
+                    brightness_score = max(0, 10 - abs(quality_metrics['brightness'] - 128) / 12.8)
+                    quality_score = sharpness_score + contrast_score + brightness_score
+                    base_score = 20  # Base score for person detection without face
+                    total_score = base_score + quality_score
+                    
+                    write_grade_to_exif(image_path, total_score)
+                    is_closeup = False  # Classify as long shot since no face detected
+                    current_set_data.append((image_path, total_score, is_closeup, True))  # Assume eyes open since we can't detect
+                
+                elif not facial_features and not detect_person(image_path) and quality_metrics:
+                    # Fallback 2: no face, no person detected, but substantial file size
+                    file_size_mb = os.path.getsize(image_path) / (1024 * 1024)
+                    if file_size_mb >= 4.6:
+                        sharpness_score = min(quality_metrics['sharpness'] / 133.0, 10)
+                        contrast_score = min(quality_metrics['contrast'] / 10.0, 10)
+                        brightness_score = max(0, 10 - abs(quality_metrics['brightness'] - 128) / 12.8)
+                        quality_score = sharpness_score + contrast_score + brightness_score
+                        base_score = 15  # Lower base score since no person detected
+                        total_score = base_score + quality_score
+                        
+                        write_grade_to_exif(image_path, total_score)
+                        is_closeup = False  # Classify as long shot 
+                        current_set_data.append((image_path, total_score, is_closeup, True))  # Assume eyes open since we can't detect
 
             progress = (i + 1) / total_files
             self.progress_bar.set(progress)
