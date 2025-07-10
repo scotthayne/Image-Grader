@@ -178,6 +178,9 @@ class App(ctk.CTk):
         self.blank_size_slider.grid(row=1, column=1, padx=10, pady=5, sticky="ew")
         self.blank_size_value_label = ctk.CTkLabel(self.slider_frame, text="5.0 MB")
         self.blank_size_value_label.grid(row=1, column=2, padx=10, pady=5, sticky="e")
+        
+        self.blank_size_desc_label = ctk.CTkLabel(self.slider_frame, text="Set this to the file size of your largest blank separator image.", text_color="gray60")
+        self.blank_size_desc_label.grid(row=2, column=0, columnspan=3, padx=10, pady=(0, 10), sticky="w")
 
 
 
@@ -311,8 +314,13 @@ class App(ctk.CTk):
                     sharpness_score = min(quality_metrics['sharpness'] / 133.0, 10)
                     contrast_score = min(quality_metrics['contrast'] / 10.0, 10)
                     brightness_score = max(0, 10 - abs(quality_metrics['brightness'] - 128) / 12.8)
-                    quality_score = sharpness_score + contrast_score + brightness_score
-                    total_score = facial_features['smile_score'] + facial_features['head_turn_score'] + eyes_score + quality_score + facial_features.get('teeth_bonus', 0)
+                    
+                    # --- Quality Gate ---
+                    if brightness_score < 4.0:
+                        total_score = 0
+                    else:
+                        quality_score = sharpness_score + contrast_score + brightness_score
+                        total_score = facial_features['smile_score'] + facial_features['head_turn_score'] + eyes_score + quality_score + facial_features.get('teeth_bonus', 0)
                     
                     write_grade_to_exif(image_path, total_score)
                     is_closeup = facial_features['face_size'] > self.close_up_threshold
@@ -323,9 +331,13 @@ class App(ctk.CTk):
                     sharpness_score = min(quality_metrics['sharpness'] / 133.0, 10)
                     contrast_score = min(quality_metrics['contrast'] / 10.0, 10)
                     brightness_score = max(0, 10 - abs(quality_metrics['brightness'] - 128) / 12.8)
-                    quality_score = sharpness_score + contrast_score + brightness_score
-                    base_score = 20  # Base score for person detection without face
-                    total_score = base_score + quality_score
+                    
+                    if brightness_score < 4.0:
+                        total_score = 0
+                    else:
+                        quality_score = sharpness_score + contrast_score + brightness_score
+                        base_score = 20  # Base score for person detection without face
+                        total_score = base_score + quality_score
                     
                     write_grade_to_exif(image_path, total_score)
                     is_closeup = False  # Classify as long shot since no face detected
@@ -338,9 +350,13 @@ class App(ctk.CTk):
                         sharpness_score = min(quality_metrics['sharpness'] / 133.0, 10)
                         contrast_score = min(quality_metrics['contrast'] / 10.0, 10)
                         brightness_score = max(0, 10 - abs(quality_metrics['brightness'] - 128) / 12.8)
-                        quality_score = sharpness_score + contrast_score + brightness_score
-                        base_score = 15  # Lower base score since no person detected
-                        total_score = base_score + quality_score
+                        
+                        if brightness_score < 4.0:
+                            total_score = 0
+                        else:
+                            quality_score = sharpness_score + contrast_score + brightness_score
+                            base_score = 15  # Lower base score since no person detected
+                            total_score = base_score + quality_score
                         
                         write_grade_to_exif(image_path, total_score)
                         is_closeup = False  # Classify as long shot 

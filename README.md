@@ -14,7 +14,7 @@ The Image Grader processes folders of images, automatically:
 ## Key Features
 
 ### Intelligent Set Detection
-- **Adjustable Blank Threshold**: GUI slider to set the file size threshold for blanks (3.0-7.0 MB, default 5.0 MB)
+- **Adjustable Blank Threshold**: GUI slider to set the file size threshold for blanks (3.0-7.0 MB, default 5.0 MB), with descriptive text to guide the user.
 - **File Size + Content Analysis**: Identifies blank separator images using the adjustable file size and absence of people
 - **Automatic Set Separation**: Organizes images into logical sets for comparison
 
@@ -35,6 +35,9 @@ The Image Grader processes folders of images, automatically:
 - **Primary Logic**: Selects highest-scoring close-up and long shot from each set
 - **Close-up Threshold**: Configurable face size percentage (default: 20% of image width)
 - **Fallback Logic**: If primary logic fails, selects top 2 highest-scoring images regardless of type
+
+### Quality Control
+- **Universal Quality Gate**: A brightness threshold (default: 4.0) is applied to all images to prevent dark or poor-quality shots from being selected.
 
 ### Metadata Management
 - **Grading**: Writes calculated scores to ImageDescription EXIF tag
