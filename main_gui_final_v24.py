@@ -226,6 +226,8 @@ class App(ctk.CTk):
     def browse_source_directory(self):
         self.source_directory = filedialog.askdirectory()
         self.source_dir_path_label.configure(text=self.source_directory if self.source_directory else "Not Selected")
+        if self.source_directory:
+            self.process_button.configure(state="normal")  # Re-enable when new directory is selected
 
     def browse_target_directory(self):
         self.target_directory = filedialog.askdirectory()
@@ -380,6 +382,7 @@ class App(ctk.CTk):
 
         self.progress_bar.set(1.0)
         self.status_label.configure(text=f"Processing Complete. 5-star keepers saved to '{self.keeper_dir}'")
+        self.process_button.configure(state="disabled")  # Disable after processing
         self.time_label.configure(text="")
         self.set_ui_state("normal")
 

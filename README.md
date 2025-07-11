@@ -41,6 +41,8 @@ The Image Grader processes folders of images, automatically:
 
 ### Metadata Management
 - **Grading**: Writes calculated scores to ImageDescription EXIF tag
+- **Button State Management**: The "Grade and Select Images" button is now disabled after processing to prevent accidental re-runs, and re-enabled when a new source directory is selected.
+
 - **Rating**: Applies 5-star ratings to keeper images
 - **RAW Transfer**: Automatically finds and rates corresponding RAW files (e.g., .CR2) in target directory
 - **Network Path Support**: Fixed compatibility with network drives and external storage
