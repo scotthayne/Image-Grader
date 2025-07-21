@@ -14,7 +14,7 @@ import mediapipe as mp
 # --- MediaPipe Setup ---
 mp_face_mesh = mp.solutions.face_mesh
 def get_rated_keepers(directory):
-    """Scans a directory and returns a list of files with a 5-star rating."""
+    """Scans a directory and returns a list of files with a 4 or 5-star rating."""
     rated_files = []
     for filename in os.listdir(directory):
         if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
@@ -23,12 +23,11 @@ def get_rated_keepers(directory):
                 command = ['exiftool', '-s', '-s', '-s', '-Rating', image_path]
                 result = subprocess.run(command, check=True, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
                 rating = result.stdout.strip()
-                if rating == "5":
+                if rating in ["4", "5"]:
                     rated_files.append(image_path)
             except Exception:
                 pass
     return rated_files
-
 
 # --- Landmark Indices ---
 LEFT_EYE_EAR_IDXS = [362, 385, 387, 263, 373, 380]
@@ -143,6 +142,11 @@ def analyze_image_quality(image_path):
 def write_grade_to_exif(image_path, score):
     """Writes grade using ExifTool."""
     try:
+        command = ['exiftool', '-overwrite_original', f'-ImageDescription=PhotoGrade: {score:.2f}', image_path]
+        subprocess.run(command, check=True, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+    except Exception as e:
+        print(f"Could not write grade to {os.path.basename(image_path)}: {e}")
+
 def add_4_star_rating_exiftool(image_path):
     """Adds 4-star rating using ExifTool."""
     try:
@@ -150,11 +154,6 @@ def add_4_star_rating_exiftool(image_path):
         subprocess.run(command, check=True, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
     except Exception as e:
         print(f"Could not write 4-star rating to {os.path.basename(image_path)}: {e}")
-
-        command = ['exiftool', '-overwrite_original', f'-ImageDescription=PhotoGrade: {score:.2f}', image_path]
-        subprocess.run(command, check=True, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
-    except Exception as e:
-        print(f"Could not write grade to {os.path.basename(image_path)}: {e}")
 
 def add_5_star_rating_exiftool(image_path):
     """Adds 5-star rating using ExifTool."""
@@ -228,7 +227,7 @@ class App(ctk.CTk):
         self.target_dir_browse_button.grid(row=0, column=2, padx=10, pady=10, sticky="e")
         self.target_dir_frame.grid_columnconfigure(1, weight=1)
 
-        self.transfer_button = ctk.CTkButton(self, text="Transfer 5-Star Ratings to Target", command=self.start_transfer, state="disabled")
+        self.transfer_button = ctk.CTkButton(self, text="Transfer Ratings to Target", command=self.start_transfer, state="disabled")
         self.transfer_button.grid(row=5, column=0, padx=20, pady=10, sticky="ew")
 
         self.status_label = ctk.CTkLabel(self, text="Select a source directory and click 'Grade'")

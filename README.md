@@ -16,7 +16,7 @@ The Image Grader processes folders of images, automatically:
 ### Streamlined Workflow
 - **No More Copying**: To significantly speed up processing, the application no longer copies keeper images to a separate folder.
 - **Direct Rating**: 5-star ratings are applied directly to the original keeper images in the source directory.
-- **Smart Transfer**: The rating transfer process now intelligently finds the 5-star rated images in the source directory to transfer their ratings.
+- **Smart Transfer**: The rating transfer process now intelligently finds all 4 and 5-star rated images in the source directory to transfer their ratings.
 
 ### Intelligent Set Detection
 - **Adjustable Blank Threshold**: GUI slider to set the file size threshold for blanks (3.0-7.0 MB, default 5.0 MB), with descriptive text to guide the user.
