@@ -138,6 +138,22 @@ def add_5_star_rating_exiftool(image_path):
         command = ['exiftool', '-overwrite_original', '-Rating=5', image_path]
         subprocess.run(command, check=True, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
     except Exception as e:
+def get_rated_keepers(directory):
+    """Scans a directory and returns a list of files with a 5-star rating."""
+    rated_files = []
+    for filename in os.listdir(directory):
+        if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+            image_path = os.path.join(directory, filename)
+            try:
+                command = ['exiftool', '-s', '-s', '-s', '-Rating', image_path]
+                result = subprocess.run(command, check=True, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                rating = result.stdout.strip()
+                if rating == "5":
+                    rated_files.append(image_path)
+            except Exception:
+                continue
+    return rated_files
+
         print(f"Could not write 5-star rating to {os.path.basename(image_path)}: {e}")
 
 
@@ -260,8 +276,8 @@ class App(ctk.CTk):
         self.target_dir_browse_button.configure(state=state)
         self.transfer_button.configure(state="normal" if is_normal and self.keeper_dir else "disabled")
 
-    def process_completed_set(self, set_data, dest_dir):
-        """Finds the best images in a set and copies them."""
+    def process_completed_set(self, set_data):
+        """Finds the best images in a set and applies a 5-star rating to them."""
         qualified_images = [img for img in set_data if img[3]]
         
         best_closeup, best_longshot = None, None
@@ -286,14 +302,9 @@ class App(ctk.CTk):
             keepers = [qualified_images[0][0], qualified_images[1][0]]
         
         for keeper_path in set(keepers):
-            shutil.copy(keeper_path, dest_dir)
+            add_5_star_rating_exiftool(keeper_path)
 
     def process_images_thread(self):
-        self.keeper_dir = os.path.join(self.source_directory, "keepers_rated")
-        if os.path.exists(self.keeper_dir):
-            shutil.rmtree(self.keeper_dir)
-        os.makedirs(self.keeper_dir)
-
         all_files = sorted([os.path.join(self.source_directory, f) for f in os.listdir(self.source_directory) if f.lower().endswith(('.png', '.jpg', '.jpeg'))])
         total_files = len(all_files)
         start_time = time.time()
@@ -304,7 +315,7 @@ class App(ctk.CTk):
             
             if is_blank(image_path, self.blank_size_threshold):
                 if current_set_data:
-                    self.process_completed_set(current_set_data, self.keeper_dir)
+                    self.process_completed_set(current_set_data)
                 current_set_data = []
             else:
                 facial_features = analyze_facial_features(image_path)
@@ -373,15 +384,12 @@ class App(ctk.CTk):
             self.time_label.configure(text=f"Time Remaining: {int(time_remaining // 60)}m {int(time_remaining % 60)}s")
 
         if current_set_data:
-            self.process_completed_set(current_set_data, self.keeper_dir)
+            self.process_completed_set(current_set_data)
 
-        self.status_label.configure(text="Rating keeper images...")
-        keeper_files = [os.path.join(self.keeper_dir, f) for f in os.listdir(self.keeper_dir)]
-        for keeper_path in keeper_files:
-            add_5_star_rating_exiftool(keeper_path)
+
 
         self.progress_bar.set(1.0)
-        self.status_label.configure(text=f"Processing Complete. 5-star keepers saved to '{self.keeper_dir}'")
+        self.status_label.configure(text=f"Processing Complete. 5-star keepers rated in source directory.")
         self.process_button.configure(state="disabled")  # Disable after processing
         self.time_label.configure(text="")
         self.set_ui_state("normal")
@@ -389,12 +397,17 @@ class App(ctk.CTk):
     def transfer_ratings_thread(self):
         self.status_label.configure(text="Starting rating transfer...")
         
-        keeper_files = [f for f in os.listdir(self.keeper_dir)]
+        keeper_files = get_rated_keepers(self.source_directory)
         all_target_files = os.listdir(self.target_directory)
         
+        if not keeper_files:
+            self.status_label.configure(text="No 5-star rated keepers found in the source directory.")
+            self.set_ui_state("normal")
+            return
+            
         transferred_count = 0
-        for i, keeper_file in enumerate(keeper_files):
-            keeper_basename = os.path.splitext(keeper_file)[0]
+        for i, keeper_path in enumerate(keeper_files):
+            keeper_basename = os.path.splitext(os.path.basename(keeper_path))[0]
             self.status_label.configure(text=f"Searching for {keeper_basename} in target directory...")
             
             matching_targets = [f for f in all_target_files if os.path.splitext(f)[0] == keeper_basename]
