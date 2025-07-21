@@ -13,6 +13,22 @@ import mediapipe as mp
 
 # --- MediaPipe Setup ---
 mp_face_mesh = mp.solutions.face_mesh
+def get_rated_keepers(directory):
+    """Scans a directory and returns a list of files with a 5-star rating."""
+    rated_files = []
+    for filename in os.listdir(directory):
+        if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+            image_path = os.path.join(directory, filename)
+            try:
+                command = ['exiftool', '-s', '-s', '-s', '-Rating', image_path]
+                result = subprocess.run(command, check=True, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                rating = result.stdout.strip()
+                if rating == "5":
+                    rated_files.append(image_path)
+            except Exception:
+                pass
+    return rated_files
+
 
 # --- Landmark Indices ---
 LEFT_EYE_EAR_IDXS = [362, 385, 387, 263, 373, 380]
@@ -127,6 +143,14 @@ def analyze_image_quality(image_path):
 def write_grade_to_exif(image_path, score):
     """Writes grade using ExifTool."""
     try:
+def add_4_star_rating_exiftool(image_path):
+    """Adds 4-star rating using ExifTool."""
+    try:
+        command = ['exiftool', '-overwrite_original', '-Rating=4', image_path]
+        subprocess.run(command, check=True, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+    except Exception as e:
+        print(f"Could not write 4-star rating to {os.path.basename(image_path)}: {e}")
+
         command = ['exiftool', '-overwrite_original', f'-ImageDescription=PhotoGrade: {score:.2f}', image_path]
         subprocess.run(command, check=True, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
     except Exception as e:
@@ -138,27 +162,14 @@ def add_5_star_rating_exiftool(image_path):
         command = ['exiftool', '-overwrite_original', '-Rating=5', image_path]
         subprocess.run(command, check=True, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
     except Exception as e:
-def get_rated_keepers(directory):
-    """Scans a directory and returns a list of files with a 5-star rating."""
-    rated_files = []
-    for filename in os.listdir(directory):
-        if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-            image_path = os.path.join(directory, filename)
-            try:
-                command = ['exiftool', '-s', '-s', '-s', '-Rating', image_path]
-                result = subprocess.run(command, check=True, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
-                rating = result.stdout.strip()
-                if rating == "5":
-                    rated_files.append(image_path)
-            except Exception:
-                continue
-    return rated_files
-
         print(f"Could not write 5-star rating to {os.path.basename(image_path)}: {e}")
 
 
 class App(ctk.CTk):
+
+
     def __init__(self):
+
         super().__init__()
         self.title("Image Grader and Selector")
         self.geometry("600x650")
@@ -229,7 +240,7 @@ class App(ctk.CTk):
         self.target_directory = ""
         self.close_up_threshold = 20.0 # --- UPDATED DEFAULT ---
         self.blank_size_threshold = 5.0
-        self.keeper_dir = ""
+        self.processing_complete = False
 
     def update_headsize_label(self, value):
         self.close_up_threshold = value
@@ -248,6 +259,7 @@ class App(ctk.CTk):
     def browse_target_directory(self):
         self.target_directory = filedialog.askdirectory()
         self.target_dir_path_label.configure(text=self.target_directory if self.target_directory else "Not Selected")
+        self.set_ui_state("normal")  # Refresh UI state to enable transfer button if ready
 
     def start_processing(self):
         if not self.source_directory:
@@ -260,8 +272,8 @@ class App(ctk.CTk):
         if not self.target_directory:
             self.status_label.configure(text="Please select a target directory first.")
             return
-        if not self.keeper_dir or not os.path.exists(self.keeper_dir):
-            self.status_label.configure(text="Please run the grading process first to generate a keeper folder.")
+        if not self.processing_complete:
+            self.status_label.configure(text="Please run the grading process first.")
             return
         self.set_ui_state("disabled")
         threading.Thread(target=self.transfer_ratings_thread, daemon=True).start()
@@ -274,10 +286,10 @@ class App(ctk.CTk):
         self.headsize_slider.configure(state=state)
         self.blank_size_slider.configure(state=state)
         self.target_dir_browse_button.configure(state=state)
-        self.transfer_button.configure(state="normal" if is_normal and self.keeper_dir else "disabled")
+        self.transfer_button.configure(state="normal" if is_normal and self.target_directory and self.processing_complete else "disabled")
 
     def process_completed_set(self, set_data):
-        """Finds the best images in a set and applies a 5-star rating to them."""
+        """Finds the best images in a set and applies a 5-star rating to close-ups and 4-star to long shots."""
         qualified_images = [img for img in set_data if img[3]]
         
         best_closeup, best_longshot = None, None
@@ -293,16 +305,27 @@ class App(ctk.CTk):
                     best_longshot_score = total_score
                     best_longshot = image_path
         
-        keepers = []
-        if best_closeup: keepers.append(best_closeup)
-        if best_longshot: keepers.append(best_longshot)
+        # Apply ratings based on shot type
+        if best_closeup:
+            add_5_star_rating_exiftool(best_closeup)
+        if best_longshot:
+            add_4_star_rating_exiftool(best_longshot)
         
+        # Fallback logic if we don't have both a close-up and a long shot
+        keepers = [k for k in [best_closeup, best_longshot] if k is not None]
         if len(keepers) < 2 and len(qualified_images) >= 2:
             qualified_images.sort(key=lambda x: x[1], reverse=True)
-            keepers = [qualified_images[0][0], qualified_images[1][0]]
-        
-        for keeper_path in set(keepers):
-            add_5_star_rating_exiftool(keeper_path)
+            top_two = [qualified_images[0][0], qualified_images[1][0]]
+            
+            # Rate the top two, ensuring we don't double-rate any already selected keepers
+            for keeper_path in top_two:
+                if keeper_path not in keepers:
+                    # Determine if the fallback keeper is a close-up or long shot to assign the correct rating
+                    is_closeup_fallback = any(img[2] for img in qualified_images if img[0] == keeper_path)
+                    if is_closeup_fallback:
+                        add_5_star_rating_exiftool(keeper_path)
+                    else:
+                        add_4_star_rating_exiftool(keeper_path)
 
     def process_images_thread(self):
         all_files = sorted([os.path.join(self.source_directory, f) for f in os.listdir(self.source_directory) if f.lower().endswith(('.png', '.jpg', '.jpeg'))])
@@ -392,6 +415,7 @@ class App(ctk.CTk):
         self.status_label.configure(text=f"Processing Complete. 5-star keepers rated in source directory.")
         self.process_button.configure(state="disabled")  # Disable after processing
         self.time_label.configure(text="")
+        self.processing_complete = True
         self.set_ui_state("normal")
 
     def transfer_ratings_thread(self):

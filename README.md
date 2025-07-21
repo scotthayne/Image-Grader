@@ -36,6 +36,10 @@ The Image Grader processes folders of images, automatically:
 2. **Person Detected**: Fallback for distant shots where faces aren't detectable
 3. **Content Detected**: File size-based fallback for substantial images (≥4.6 MB) without detectable people
 
+### Differentiated Star Ratings
+- **Close-ups:** Awarded a 5-star rating.
+- **Long shots:** Awarded a 4-star rating.
+
 ### Smart Keeper Selection
 - **Primary Logic**: Selects highest-scoring close-up and long shot from each set
 - **Close-up Threshold**: Configurable face size percentage (default: 20% of image width)
